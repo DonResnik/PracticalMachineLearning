@@ -2,7 +2,7 @@
 title: "Practical Machine Learning"
 author: "Don Resnik"
 date: "August 12, 2016"
-output: html_document
+output: pdf_document
 ---
 
 Background
