@@ -1,0 +1,103 @@
+---
+title: "Practical Machine Learning"
+author: "Don Resnik"
+date: "August 12, 2016"
+output: html_document
+---
+
+Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+```{r setup, include=FALSE}
+library(data.table)
+library(caret)
+library(randomForest)
+library(rpart) 
+library(rattle)
+library(curl)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Data
+
+Load the trainging and test data from the URLs listed above.  Do some preliminary cleaning to normalize the null and empty values.
+
+```{r loadData}
+set.seed(1234)
+trainingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+trainingData <- fread(trainingUrl, na.strings=c("", "NA", "#DIV/0!"))
+
+testingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+testingData <- fread(testingUrl, na.strings=c("", "NA", "#DIV/0!"))
+trainingData <- as.data.frame(trainingData)
+testingData <- as.data.frame(testingData)
+
+trainingData$classe <- as.factor(trainingData$classe)
+```
+
+## Data Cleaning
+
+The training and test data is now cleaned using the following steps:
+1.  Remove all columns with no values
+2.  Remove the columns with non-scored values (columns 1-7)
+
+The training data is then split 75/25 into training and validation data sets
+
+```{r dataCleanint}
+dim(trainingData)
+dim(testingData)
+
+# Remove columns with all missing values
+trainingData<-trainingData[,colSums(is.na(trainingData)) == 0]
+testingData<-testingData[,colSums(is.na(testingData)) == 0]
+dim(trainingData)
+dim(testingData)
+
+# Remove columns with labels or other non-comparative data
+trainingData <-trainingData[,-c(1:7)]
+testingData <-testingData[,-c(1:7)]
+
+dim(trainingData)
+dim(testingData)
+
+#create a validation set from the training set
+trainingPartition <- createDataPartition(y=trainingData$classe, p = 0.75, list = FALSE)
+trainingDataSplit <- trainingData[trainingPartition, ]
+validationDataSplit <- trainingData[-trainingPartition, ]
+
+```
+
+## Model Creation
+RPart
+```{r rpart}
+modFit <- train(classe~., data=trainingDataSplit,method="rpart")
+print(modFit)
+fancyRpartPlot(modFit$finalModel)
+```
+
+Random Forest
+```{r randomForest}
+randomForestModel <- randomForest(classe~., data=trainingDataSplit)
+predictionTrainingDataSplit <- predict(randomForestModel, validationDataSplit)
+print(confusionMatrix(predictionTrainingDataSplit, validationDataSplit$classe))
+```
+
+## Run prediction with Test Data
+```{r prediction}
+predictionTestData <- predict(randomForestModel, testingData) 
+table(predictionTestData,testingData$problem_id)
+predictionTestData
+```
