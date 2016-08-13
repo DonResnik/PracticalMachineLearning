@@ -33,7 +33,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Load Data
 
-Load the trainging and test data from the URLs listed above.  Do some preliminary cleaning to normalize the null and empty values.
+Load the training and test data from the URLs listed above.  Do some preliminary cleaning to normalize the null and empty values.
 
 ```{r loadData}
 set.seed(1234)
@@ -51,20 +51,19 @@ trainingData$classe <- as.factor(trainingData$classe)
 ## Data Cleaning
 
 The training and test data is now cleaned using the following steps:
-1.  Remove all columns with no values
-2.  Remove the columns with non-scored values (columns 1-7)
 
-The training data is then split 75/25 into training and validation data sets
+1. Remove all columns with no values
+2. Remove the columns with non-scored values (columns 1-7)
 
-```{r dataCleanint}
+The training data is then split 75/25 to provide cross validation with training and validation data sets
+
+```{r dataCleaning}
 dim(trainingData)
 dim(testingData)
 
 # Remove columns with all missing values
 trainingData<-trainingData[,colSums(is.na(trainingData)) == 0]
 testingData<-testingData[,colSums(is.na(testingData)) == 0]
-dim(trainingData)
-dim(testingData)
 
 # Remove columns with labels or other non-comparative data
 trainingData <-trainingData[,-c(1:7)]
@@ -73,7 +72,7 @@ testingData <-testingData[,-c(1:7)]
 dim(trainingData)
 dim(testingData)
 
-#create a validation set from the training set
+#create a validation set from the training set for cross validation
 trainingPartition <- createDataPartition(y=trainingData$classe, p = 0.75, list = FALSE)
 trainingDataSplit <- trainingData[trainingPartition, ]
 validationDataSplit <- trainingData[-trainingPartition, ]
@@ -81,21 +80,34 @@ validationDataSplit <- trainingData[-trainingPartition, ]
 ```
 
 ## Model Creation
-RPart
-```{r rpart}
-modFit <- train(classe~., data=trainingDataSplit,method="rpart")
-print(modFit)
-fancyRpartPlot(modFit$finalModel)
-```
+We will examine two different methods to train the training data set:  rpart and randomForest (rf)
 
-Random Forest
+# RPart
+RPart is faster than rf but generally not as accurate.
+
+Here we train and display the tree for the trainingDataSplit.  Then we will apply the model to predict the validationDataSplit.
+```{r rpart}
+rpartModel <- train(classe~., data=trainingDataSplit,method="rpart")
+print(rpartModel)
+fancyRpartPlot(rpartModel$finalModel)
+predictionTrainingDataSplit <- predict(rpartModel, validationDataSplit)
+print(confusionMatrix(predictionTrainingDataSplit, validationDataSplit$classe))
+```
+As we can see, the accuracy of the RPart model is only 49% when used on the validationDataSplit.  That will not be good enough to use on our test data.  We need to try find a more accurate method.
+
+Now let's try using randomForest (rf).
+
+# Random Forest
+RandomForest takes more time to process, but is more accurate than RPart due to the amount of trees that are generated as part of the training of the data.  In this example we will train the training data and then predict the validationDataSplit to check the accuracy of the results.
 ```{r randomForest}
 randomForestModel <- randomForest(classe~., data=trainingDataSplit)
 predictionTrainingDataSplit <- predict(randomForestModel, validationDataSplit)
 print(confusionMatrix(predictionTrainingDataSplit, validationDataSplit$classe))
 ```
+You can see that the rf prediction was 99% accurate on the validationDataSplit.  This should provide accurate predictions with the test data set.
 
 ## Run prediction with Test Data
+We will now use the prediction model from the trainingDataSplit with the test data to determine the classe associated with each exercise.  Results are displyed below.
 ```{r prediction}
 predictionTestData <- predict(randomForestModel, testingData) 
 table(predictionTestData,testingData$problem_id)
